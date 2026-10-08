@@ -1,3 +1,5 @@
+DROP 
+
 CREATE TYPE region AS ENUM (
     'us-south',
     'us-west',

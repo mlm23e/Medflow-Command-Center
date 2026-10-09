@@ -1,5 +1,3 @@
-DROP 
-
 CREATE TYPE region AS ENUM (
     'us-south',
     'us-west',
@@ -36,7 +34,7 @@ CREATE TYPE order_status AS ENUM (
  -- User table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(150) NOT NULL,
+    username VARCHAR(150) NOT NULL UNIQUE,
     hashed_password TEXT NOT NULL,
     first_name VARCHAR(150) NOT NULL,
     last_name VARCHAR(150) NOT NULL,

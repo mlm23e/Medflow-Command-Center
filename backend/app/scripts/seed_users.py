@@ -1,11 +1,12 @@
 import asyncio
+from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.models import User, UserRole
 from app.security import hash_password
 
 async def seed_users()->None:
     async with AsyncSessionLocal() as session:
-        session.add_all([
+        seed_records = [
             User(username="admin", hashed_password=hash_password("adminpass123!"), first_name="John", last_name="Smith", role=UserRole.ADMIN),
             User(username="technician", hashed_password=hash_password("technicianpass123!"), first_name="Angie", last_name="Paltrow", role=UserRole.TECHNICIAN),
             User(username="auditor", hashed_password=hash_password("auditorpass123!"), first_name="Winston", last_name="Church", role=UserRole.AUDITOR),
@@ -18,7 +19,9 @@ async def seed_users()->None:
             User(username="admin_parmy", hashed_password=hash_password("adminpass123!"), first_name="Parmjeet", last_name="Larson", role=UserRole.ADMIN),
             User(username="technician_paul", hashed_password=hash_password("technicianpass123!"), first_name="Paul", last_name="McHogeoan", role=UserRole.TECHNICIAN),
             User(username="auditor_paul", hashed_password=hash_password("auditorpass123!"), first_name="Paul", last_name="Atreides", role=UserRole.AUDITOR),
-        ])
+        ]
+        existing_usernames = set((await session.scalars(select(User.username))).all())
+        session.add_all(user for user in seed_records if user.username not in existing_usernames)
         await session.commit()
 if __name__ == "__main__":
     asyncio.run(seed_users())

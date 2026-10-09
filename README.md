@@ -130,3 +130,23 @@ By the conclusion of the workshop, participants must present a working deploymen
 2. **RBAC Walkthrough:** Demonstrating role restrictions (e.g., logging in as a *Clinical Admin* to modify equipment assets vs. a *Field Technician* uploading an S3 service report).
 3. **Data Grid & Analytical Dashboard:** Demonstrating live filtering, searching, and accurate metrics addressing the business questions.
 4. **Codebase Architecture Tour:** A brief walk-through of Pydantic validation schemas, FastAPI dependencies (`Depends`), SQLAlchemy database sessions, and MUI state management.
+
+## 8. Local Setup and Seed Data
+
+Run setup from any directory with Bash, Python 3 (including `venv`), and npm installed:
+
+```bash
+bin/setup.sh
+```
+
+Setup creates `backend/.venv` only when it is missing, installs backend and frontend dependencies, and copies `backend/.env.example` only when `backend/.env` does not already exist. Configure `DATABASE_URL` and `SECRET_KEY` in `backend/.env` before starting the backend.
+
+Seed the database with:
+
+```bash
+bin/seed.sh
+```
+
+The seed script uses `DATABASE_URL` from the environment, or from `backend/.env` when it is unset. It must be a PostgreSQL SQLAlchemy URL such as `postgresql+asyncpg://...`; PostgreSQL must be running and `psql` must be installed. Re-running the command does not duplicate the demo users, sites, assets, jobs, or reports.
+
+To clear and reload the demo sites and their dependent equipment, work orders, and reports, use `bin/seed.sh --reset`. The script asks for confirmation; `bin/seed.sh --reset --yes` skips the prompt. Seed users are preserved. Both scripts resolve project paths relative to their own location.

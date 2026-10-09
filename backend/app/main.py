@@ -1,4 +1,8 @@
+import asyncio
 import os
+
+import boto3
+from botocore.config import Config
 
 from mangum import Mangum
 
@@ -7,12 +11,21 @@ from fastapi.responses import JSONResponse # day 10
 from sqlalchemy.exc import IntegrityError # day 10
 
 from fastapi import FastAPI
+from fastapi import Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware # day 7 - update
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.routers import equipment, hospitals, reports, work_orders, users, auth
 
 from app.config import settings # day 11 update
+from app.dependencies import get_db, require_role
+from app.models import User, UserRole
+from app.scripts.upload_report import BUCKET_NAME
 FRONTEND_ORIGIN = settings.frontend_origin
+
+HEALTH_CHECK_TIMEOUT_SECONDS = 2
+S3_CHECK_TIMEOUT_SECONDS = 3
 
 app = FastAPI(
     title="Medflow Clinical Equipment Command Center",
@@ -50,6 +63,65 @@ app.include_router(auth.router)
 @app.get("/health", tags=["health"])
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+async def database_is_available(db: AsyncSession) -> bool:
+    try:
+        await asyncio.wait_for(
+            db.execute(text("SELECT 1")),
+            timeout=HEALTH_CHECK_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        return False
+    return True
+
+
+def check_s3_bucket() -> None:
+    client = boto3.client(
+        "s3",
+        config=Config(
+            connect_timeout=1,
+            read_timeout=1,
+            retries={"max_attempts": 0},
+        ),
+    )
+    client.head_bucket(Bucket=BUCKET_NAME)
+
+
+async def s3_is_available() -> bool:
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(check_s3_bucket),
+            timeout=S3_CHECK_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        return False
+    return True
+
+
+@app.get("/health/ready", tags=["health"])
+async def readiness_check(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    if not await database_is_available(db):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"status": "not_ready", "database": "unavailable"},
+        )
+    return {"status": "ready", "database": "reachable"}
+
+
+@app.get("/health/detail", tags=["health"])
+async def health_detail(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_role(UserRole.ADMIN)),
+) -> dict[str, dict[str, str]]:
+    database_status = "ok" if await database_is_available(db) else "unavailable"
+    s3_status = "ok" if await s3_is_available() else "unavailable"
+    return {
+        "database": {"status": database_status},
+        "s3": {"status": s3_status},
+    }
 
 ##Endpoint to check the version number (day 10)
 @app.get("/version", tags=["health"])

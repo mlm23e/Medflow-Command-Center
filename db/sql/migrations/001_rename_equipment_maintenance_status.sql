@@ -1,1 +1,0 @@
-ALTER TYPE equip_status RENAME VALUE 'Maintenace' TO 'Maintenance';
